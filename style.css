@@ -1,0 +1,276 @@
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background: #f2f2f2;
+}
+
+.hidden { display: none !important; }
+
+.screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.card {
+  background: #fff;
+  padding: 22px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.18);
+  text-align: center;
+  width: min(520px, 92vw);
+}
+
+.card.wide { width: min(860px, 92vw); }
+
+.panel {
+  width: min(1200px, 96vw);
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.muted { color: #666; margin: 8px 0 12px; }
+
+select {
+  width: min(360px, 80vw);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #ddd;
+  margin: 10px 0 14px;
+}
+
+button {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 12px;
+  background: #4da3ff;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button.big { font-size: 20px; padding: 14px 26px; }
+button.ghost {
+  background: #fff;
+  color: #1a1a1a;
+  border: 1px solid #ddd;
+}
+
+button:active { transform: translateY(1px); }
+
+/* Camera check preview */
+.checkPreview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #111;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.checkPreview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+/* STAGE (poster) */
+.stage {
+  position: relative;
+  width: min(1100px, 96vw);
+  background: #fff no-repeat center / contain;
+  border-radius: 16px;
+  overflow: hidden;
+
+  /* set by JS from background image */
+  aspect-ratio: var(--bg-ar, 4 / 3);
+}
+
+/* safe is just the “work area” inside the stage */
+.safe {
+  position: absolute;
+  inset: 0;
+  padding: var(--safe-padding, 70px);
+}
+
+/* Controls bar anchored at bottom inside stage */
+.controls {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  z-index: 20;
+}
+
+/* Hint below stage */
+.hint {
+  margin-top: 10px;
+  text-align: center;
+  color: #444;
+}
+
+/* Frames */
+.frame {
+  position: absolute;
+  border-radius: 14px; /* smaller corners as you requested */
+  border: 2px solid #7fd39a; /* light green */
+  overflow: hidden;
+  background: #fff;
+  line-height: 0;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.frame.selected {
+  outline: 3px solid #4da3ff;
+  outline-offset: -3px;
+}
+
+.frame {
+  user-select: none;
+  touch-action: none;
+}
+
+
+/* Setup frames: draggable */
+.drag {
+  cursor: grab;
+}
+.drag:active {
+  cursor: grabbing;
+}
+
+/* Placeholder white */
+.placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(0,0,0,0.35);
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+/* Booth frames with camera/photo */
+.frame .cam, .frame .photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.frame .cam { transform: scaleX(-1); }
+
+/* White until active */
+.whiteveil {
+  position: absolute;
+  inset: 0;
+  background: white;
+  opacity: 1;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+}
+
+/* Active frame shows camera + countdown */
+.frame.active .whiteveil { opacity: 0; }
+.frame.active {
+  border-color: #4da3ff; /* blue */
+  box-shadow:
+    0 0 0 4px rgba(77,163,255,0.45), /* outer blue ring */
+    0 0 0 1px #4da3ff inset;         /* crisp inner line */
+}
+
+
+/* Countdown overlay */
+.countdown {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,0.18);
+  color: #fff;
+  font-size: 70px;
+  font-weight: 900;
+  text-shadow: 0 10px 30px rgba(0,0,0,.7);
+}
+
+/* Flash */
+.flash {
+  position: fixed;
+  inset: 0;
+  background: white;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+  z-index: 9999;
+}
+.flash.on { opacity: 0.9; }
+
+.align-toolbar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 8px;
+  background: white;
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.18);
+  z-index: 30;
+}
+
+/* ================= RESIZE HANDLES ================= */
+.resize-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #4da3ff;
+  border-radius: 50%;
+  z-index: 50;
+  cursor: pointer;
+}
+
+/* corner positions */
+.resize-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: #4da3ff;
+  border-radius: 50%;
+  z-index: 10;
+}
+
+.resize-handle.nw { top: -7px; left: -7px; cursor: nwse-resize; }
+.resize-handle.ne { top: -7px; right: -7px; cursor: nesw-resize; }
+.resize-handle.sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+.resize-handle.se { bottom: -7px; right: -7px; cursor: nwse-resize; }
+
+
+/* show handles only when selected */
+.frame:not(.selected) .resize-handle {
+  display: none;
+}
+
+
+@keyframes activePulse {
+  0% { box-shadow: 0 0 0 4px rgba(77,163,255,0.45); }
+  50% { box-shadow: 0 0 0 7px rgba(77,163,255,0.25); }
+  100% { box-shadow: 0 0 0 4px rgba(77,163,255,0.45); }
+}
+
+.frame.active {
+  animation: activePulse 1.2s ease-in-out infinite;
+}

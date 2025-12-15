@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Photobooth</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<section id="loginScreen" class="screen">
+  <div class="card">
+    <h1 id="appTitle">Photobooth</h1>
+    <p>Select profile</p>
+    <select id="profileSelect"></select>
+    <button id="loginBtn">Continue</button>
+  </div>
+</section>
+
+<!-- ================= CAMERA CHECK ================= -->
+<section id="cameraCheckScreen" class="screen hidden">
+  <div class="card wide">
+    <h2>Camera Check</h2>
+    <p class="muted">If you see yourself clearly, press OK.</p>
+
+    <div class="checkPreview">
+      <video id="checkVideo" autoplay muted playsinline></video>
+    </div>
+
+    <div class="row">
+      <button id="okCameraBtn" class="big">OK</button>
+      <button id="backToLoginBtn" class="ghost">Back</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LAYOUT SETUP ================= -->
+<section id="layoutSetupScreen" class="screen hidden">
+  <div class="panel">
+
+    <div id="stage" class="stage">
+      <div class="safe">
+
+        <!-- LEFT (SETUP) -->
+        <div class="frame frame-left drag" id="frameLeft_setup">
+          <div class="placeholder">LEFT</div>
+
+          <div class="resize-handle nw"></div>
+          <div class="resize-handle ne"></div>
+          <div class="resize-handle sw"></div>
+          <div class="resize-handle se"></div>
+        </div>
+
+        <!-- RIGHT TOP (SETUP) -->
+        <div class="frame frame-rt drag" id="frameRT_setup">
+          <div class="placeholder">RT</div>
+
+          <div class="resize-handle nw"></div>
+          <div class="resize-handle ne"></div>
+          <div class="resize-handle sw"></div>
+          <div class="resize-handle se"></div>
+        </div>
+
+        <!-- RIGHT BOTTOM (SETUP) -->
+        <div class="frame frame-rb drag" id="frameRB_setup">
+          <div class="placeholder">RB</div>
+
+          <div class="resize-handle nw"></div>
+          <div class="resize-handle ne"></div>
+          <div class="resize-handle sw"></div>
+          <div class="resize-handle se"></div>
+        </div>
+
+      </div>
+
+      <!-- SETUP CONTROLS -->
+      <div class="controls">
+        <button id="resetLayoutBtn" class="ghost">Reset layout</button>
+        <button id="startCaptureBtn" class="big">Start</button>
+        <button id="changeUserBtn1" class="ghost">Change profile</button>
+      </div>
+    </div>
+
+    <!-- ===== ALIGN TOOLBAR (SETUP ONLY) ===== -->
+    <div class="align-toolbar">
+      <button type="button" onclick="centerSetupGroupBoth()">Center</button>
+      <button type="button" onclick="alignSetupLeft()">Align Left</button>
+    </div>
+
+    <div class="hint">
+      Drag and resize frames to align with the background.  
+      Select 1–3 frames and use the toolbar. Then press <b>Start</b>.
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= BOOTH / CAPTURE ================= -->
+<section id="boothScreen" class="screen hidden">
+  <div class="panel">
+
+    <div id="stageBooth" class="stage">
+      <div class="safe">
+
+        <!-- LEFT (BOOTH) -->
+        <div class="frame live" id="frameLeft">
+          <video autoplay muted playsinline class="cam hidden"></video>
+          <img class="photo hidden" alt="Left photo" />
+          <div class="countdown hidden"></div>
+          <div class="whiteveil"></div>
+        </div>
+
+        <!-- RIGHT TOP (BOOTH) -->
+        <div class="frame live" id="frameRT">
+          <video autoplay muted playsinline class="cam hidden"></video>
+          <img class="photo hidden" alt="RT photo" />
+          <div class="countdown hidden"></div>
+          <div class="whiteveil"></div>
+        </div>
+
+        <!-- RIGHT BOTTOM (BOOTH) -->
+        <div class="frame live" id="frameRB">
+          <video autoplay muted playsinline class="cam hidden"></video>
+          <img class="photo hidden" alt="RB photo" />
+          <div class="countdown hidden"></div>
+          <div class="whiteveil"></div>
+        </div>
+
+      </div>
+
+      <!-- BOOTH CONTROLS -->
+      <div class="controls">
+        <button id="saveBtn">Save JPG</button>
+        <button id="retakeBtn" class="ghost">Retake</button>
+        <button id="changeUserBtn2" class="ghost">Change profile</button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ================= EFFECTS ================= -->
+<div id="flash" class="flash"></div>
+
+<audio id="beepSound" src="assets/sounds/beep.mp3" preload="auto"></audio>
+<audio id="shutterSound" src="assets/sounds/shutter.mp3" preload="auto"></audio>
+
+<canvas id="workCanvas" hidden></canvas>
+
+<!-- ================= SCRIPTS ================= -->
+<script src="data/profiles.js"></script>
+<script src="data/defaultLayout.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
