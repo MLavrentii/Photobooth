@@ -8,6 +8,11 @@ let currentProfileId = null;
 let currentLayout = null;
 
 /* ===========================
+   Snap settings
+=========================== */
+const SNAP_RATIO = 0.015; // 5% of safe width
+const SNAP_RESIST = 1.0;  // magnetic strength (0.7–0.9 is good)
+/* ===========================
    Elements
 =========================== */
 
@@ -56,6 +61,13 @@ const frameFrozen = {
    Helpers
 =========================== */
 
+function snapValue(value, target, snap) {
+  const d = target - value;
+  if (Math.abs(d) < snap) return target;
+  return value;
+}
+
+
 function getAudioDurationMs(audioEl, fallbackMs = 1200) {
   if (!audioEl) return fallbackMs;
 
@@ -66,6 +78,95 @@ function getAudioDurationMs(audioEl, fallbackMs = 1200) {
 
   // fallback (mobile / slow load safety)
   return fallbackMs;
+}
+
+function applyDragSnapping(key, x, y) {
+  const snap = SNAP_RATIO;
+
+  const box = currentLayout[key];
+  let nx = x;
+  let ny = y;
+
+  const cx = x + box.w / 2;
+  const cy = y + box.h / 2;
+
+  let bestDX = 0;
+  let bestDY = 0;
+  let minDX = snap;
+  let minDY = snap;
+
+  // 🎯 🧲stage center
+  const dxCenter = 0.5 - cx;
+  if (Math.abs(dxCenter) < minDX) {
+    minDX = Math.abs(dxCenter);
+    bestDX = dxCenter;
+  }
+
+  const dyCenter = 0.5 - cy;
+  if (Math.abs(dyCenter) < minDY) {
+    minDY = Math.abs(dyCenter);
+    bestDY = dyCenter;
+  }
+
+  // 🎯 🧲other frames
+  Object.keys(currentLayout).forEach(k => {
+    if (k === key) return;
+
+    const o = currentLayout[k];
+
+    const hPairs = [
+      [x, o.x],
+      [x + box.w, o.x + o.w],
+      [cx, o.x + o.w / 2]
+    ];
+
+    hPairs.forEach(([a, b]) => {
+      const d = b - a;
+      if (Math.abs(d) < minDX) {
+        minDX = Math.abs(d);
+        bestDX = d;
+      }
+    });
+
+    const vPairs = [
+      [y, o.y],
+      [y + box.h, o.y + o.h],
+      [cy, o.y + o.h / 2]
+    ];
+
+    vPairs.forEach(([a, b]) => {
+      const d = b - a;
+      if (Math.abs(d) < minDY) {
+        minDY = Math.abs(d);
+        bestDY = d;
+      }
+    });
+  });
+
+  nx += bestDX * SNAP_RESIST;
+  ny += bestDY * SNAP_RESIST;
+
+  return { x: nx, y: ny };
+}
+
+function applyResizeSnapping(key, box) {
+  const snap = SNAP_RATIO;
+
+  Object.keys(currentLayout).forEach(k => {
+    if (k === key) return;
+
+    const o = currentLayout[k];
+
+    // Snap width
+    if (Math.abs(box.w - o.w) < snap) {
+      box.w += (o.w - box.w) * SNAP_RESIST;
+    }
+
+    // Snap height
+    if (Math.abs(box.h - o.h) < snap) {
+      box.h += (o.h - box.h) * SNAP_RESIST;
+    }
+  });
 }
 
 
@@ -262,9 +363,27 @@ function makeDraggable(frameEl, key) {
         const box = startBoxes[k];
         const w = box.w;
         const h = box.h;
+        let tx = box.x + dx;
+        let ty = box.y + dy;
 
-        currentLayout[k].x = clamp(box.x + dx, 0, 1 - w);
-        currentLayout[k].y = clamp(box.y + dy, 0, 1 - h);
+        const snapped = applyDragSnapping(k, tx, ty);
+
+        let nx = tx;
+
+        Object.keys(currentLayout).forEach(oKey => {
+          if (oKey === k) return;
+          const o = currentLayout[oKey];
+        
+          // snap left → left
+          nx = snapValue(nx, o.x, SNAP_RATIO);
+        
+          // snap right → right
+          nx = snapValue(nx + w, o.x + o.w, SNAP_RATIO) - w;
+        });
+        
+        currentLayout[k].x = clamp(nx, 0, 1 - w);
+
+        currentLayout[k].y = clamp(snapped.y, 0, 1 - h);
       });
 
       applyLayoutToSetup(currentLayout);
@@ -424,6 +543,7 @@ function makeResizable(frameEl, key) {
           box.h = clamp(orig.h + dy, 0.05, 1);
         }
 
+        applyResizeSnapping(key, box, safeRect);
         applyLayoutToSetup(currentLayout);
       }
 
