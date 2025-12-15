@@ -102,6 +102,11 @@ button:active { transform: translateY(1px); }
   inset: 0;
   padding: var(--safe-padding, 70px);
 }
+/*Adding extra safe padding at bottom, UI-only:*/
+.safe {
+  padding-bottom: calc(var(--safe-padding, 70px) + 80px);
+}
+
 
 /* Controls bar anchored at bottom inside stage */
 .controls {
@@ -132,6 +137,10 @@ button:active { transform: translateY(1px); }
   background: #fff;
   line-height: 0;
   transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.frame {
+  box-sizing: content-box; /* NOT border-box */
 }
 
 .frame.selected {
@@ -273,4 +282,43 @@ button:active { transform: translateY(1px); }
 
 .frame.active {
   animation: activePulse 1.2s ease-in-out infinite;
+}
+
+
+
+
+.stageWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.boothWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.controlsBar {
+  margin-top: 14px;
+  padding: 12px 0;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+
+
+.resize-handle {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+}
+
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  background: #4da3ff;
+  border-radius: 50%;
 }

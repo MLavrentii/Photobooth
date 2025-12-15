@@ -42,30 +42,24 @@
     <div id="stage" class="stage">
       <div class="safe">
 
-        <!-- LEFT (SETUP) -->
-        <div class="frame frame-left drag" id="frameLeft_setup">
+        <div class="frame drag" id="frameLeft_setup">
           <div class="placeholder">LEFT</div>
-
           <div class="resize-handle nw"></div>
           <div class="resize-handle ne"></div>
           <div class="resize-handle sw"></div>
           <div class="resize-handle se"></div>
         </div>
 
-        <!-- RIGHT TOP (SETUP) -->
-        <div class="frame frame-rt drag" id="frameRT_setup">
+        <div class="frame drag" id="frameRT_setup">
           <div class="placeholder">RT</div>
-
           <div class="resize-handle nw"></div>
           <div class="resize-handle ne"></div>
           <div class="resize-handle sw"></div>
           <div class="resize-handle se"></div>
         </div>
 
-        <!-- RIGHT BOTTOM (SETUP) -->
-        <div class="frame frame-rb drag" id="frameRB_setup">
+        <div class="frame drag" id="frameRB_setup">
           <div class="placeholder">RB</div>
-
           <div class="resize-handle nw"></div>
           <div class="resize-handle ne"></div>
           <div class="resize-handle sw"></div>
@@ -74,7 +68,7 @@
 
       </div>
 
-      <!-- SETUP CONTROLS -->
+      <!-- setup-only controls (fine inside stage) -->
       <div class="controls">
         <button id="resetLayoutBtn" class="ghost">Reset layout</button>
         <button id="startCaptureBtn" class="big">Start</button>
@@ -82,15 +76,14 @@
       </div>
     </div>
 
-    <!-- ===== ALIGN TOOLBAR (SETUP ONLY) ===== -->
     <div class="align-toolbar">
       <button type="button" onclick="centerSetupGroupBoth()">Center</button>
       <button type="button" onclick="alignSetupLeft()">Align Left</button>
     </div>
 
     <div class="hint">
-      Drag and resize frames to align with the background.  
-      Select 1–3 frames and use the toolbar. Then press <b>Start</b>.
+      Drag and resize frames to align with the background.
+      Select frames and press <b>Start</b>.
     </div>
 
   </div>
@@ -98,43 +91,41 @@
 
 <!-- ================= BOOTH / CAPTURE ================= -->
 <section id="boothScreen" class="screen hidden">
-  <div class="panel">
+  <div class="panel boothWrap">
 
+    <!-- STAGE (exported area ONLY) -->
     <div id="stageBooth" class="stage">
       <div class="safe">
 
-        <!-- LEFT (BOOTH) -->
         <div class="frame live" id="frameLeft">
           <video autoplay muted playsinline class="cam hidden"></video>
-          <img class="photo hidden" alt="Left photo" />
+          <img class="photo hidden" />
           <div class="countdown hidden"></div>
           <div class="whiteveil"></div>
         </div>
 
-        <!-- RIGHT TOP (BOOTH) -->
         <div class="frame live" id="frameRT">
           <video autoplay muted playsinline class="cam hidden"></video>
-          <img class="photo hidden" alt="RT photo" />
+          <img class="photo hidden" />
           <div class="countdown hidden"></div>
           <div class="whiteveil"></div>
         </div>
 
-        <!-- RIGHT BOTTOM (BOOTH) -->
         <div class="frame live" id="frameRB">
           <video autoplay muted playsinline class="cam hidden"></video>
-          <img class="photo hidden" alt="RB photo" />
+          <img class="photo hidden" />
           <div class="countdown hidden"></div>
           <div class="whiteveil"></div>
         </div>
 
       </div>
+    </div>
 
-      <!-- BOOTH CONTROLS -->
-      <div class="controls">
-        <button id="saveBtn">Save JPG</button>
-        <button id="retakeBtn" class="ghost">Retake</button>
-        <button id="changeUserBtn2" class="ghost">Change profile</button>
-      </div>
+    <!-- UI ONLY (never exported) -->
+    <div class="controlsBar">
+      <button id="saveBtn">Save JPG</button>
+      <button id="retakeBtn" class="ghost">Retake</button>
+      <button id="changeUserBtn2" class="ghost">Change profile</button>
     </div>
 
   </div>

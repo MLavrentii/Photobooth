@@ -7,6 +7,9 @@ let stream = null;
 let currentProfileId = null;
 let currentLayout = null;
 
+let pointerWasDragging = false;
+
+
 /* ===========================
    Snap settings
 =========================== */
@@ -57,9 +60,139 @@ const frameFrozen = {
   rb: false
 };
 
+
 /* ===========================
    Helpers
 =========================== */
+
+function addTouchSelection(el, key) {
+  let pressTimer = null;
+  let longPressed = false;
+
+  el.addEventListener("pointerdown", e => {
+    longPressed = false;
+
+    pressTimer = setTimeout(() => {
+      longPressed = true;
+
+      if (selectedSetupFrames.includes(key)) {
+        selectedSetupFrames =
+          selectedSetupFrames.filter(k => k !== key);
+      } else {
+        selectedSetupFrames.push(key);
+      }
+      updateSetupSelectionUI();
+    }, 350);
+  });
+
+  el.addEventListener("pointermove", () => {
+    // movement = drag intent → cancel tap / long-press
+    clearTimeout(pressTimer);
+  });
+
+  el.addEventListener("pointerup", e => {
+    clearTimeout(pressTimer);
+
+    // 🚫 if this interaction was a drag, do NOTHING
+    if (pointerWasDragging) return;
+
+    // short tap
+    if (!longPressed) {
+      if (e.shiftKey) {
+        if (selectedSetupFrames.includes(key)) {
+          selectedSetupFrames =
+            selectedSetupFrames.filter(k => k !== key);
+        } else {
+          selectedSetupFrames.push(key);
+        }
+      } else {
+        if (selectedSetupFrames.includes(key)) {
+          selectedSetupFrames = [];
+        } else {
+          selectedSetupFrames = [key];
+        }
+      }
+      updateSetupSelectionUI();
+    }
+  });
+
+
+  el.addEventListener("pointercancel", () => {
+    clearTimeout(pressTimer);
+  });
+}
+
+
+
+function getBoxEdges(box) {
+  return {
+    left: box.x,
+    right: box.x + box.w,
+    top: box.y,
+    bottom: box.y + box.h,
+    cx: box.x + box.w / 2,
+    cy: box.y + box.h / 2
+  };
+}
+
+
+function setFrameBordersVisible(visible) {
+  [frameLeft, frameRT, frameRB].forEach(f => {
+    f.style.borderColor = visible ? "" : "transparent";
+  });
+}
+
+function getEdges(box) {
+  return {
+    v: [box.x, box.x + box.w], // vertical edges
+    h: [box.y, box.y + box.h]  // horizontal edges
+  };
+}
+
+function collectSnapTargets(excludeKey) {
+  const targets = {
+    v: [0, 1], // stage vertical edges
+    h: [0, 1]  // stage horizontal edges
+  };
+
+  Object.keys(currentLayout).forEach(k => {
+    if (k === excludeKey) return;
+    const e = getBoxEdges(currentLayout[k]);
+    targets.v.push(e.left, e.right);
+    targets.h.push(e.top, e.bottom);
+  });
+
+  return targets;
+}
+
+function snapEdges(edges, targets, snap) {
+  let dx = 0, dy = 0;
+  let minDX = snap, minDY = snap;
+
+  // vertical
+  [edges.left, edges.right].forEach(a => {
+    targets.v.forEach(b => {
+      const d = b - a;
+      if (Math.abs(d) < minDX) {
+        minDX = Math.abs(d);
+        dx = d;
+      }
+    });
+  });
+
+  // horizontal
+  [edges.top, edges.bottom].forEach(a => {
+    targets.h.forEach(b => {
+      const d = b - a;
+      if (Math.abs(d) < minDY) {
+        minDY = Math.abs(d);
+        dy = d;
+      }
+    });
+  });
+
+  return { dx, dy };
+}
 
 function snapValue(value, target, snap) {
   const d = target - value;
@@ -80,95 +213,61 @@ function getAudioDurationMs(audioEl, fallbackMs = 1200) {
   return fallbackMs;
 }
 
-function applyDragSnapping(key, x, y) {
+function snapMove(key, x, y) {
+  const box = currentLayout[key];
   const snap = SNAP_RATIO;
 
-  const box = currentLayout[key];
-  let nx = x;
-  let ny = y;
+  const edges = {
+    left: x,
+    right: x + box.w,
+    top: y,
+    bottom: y + box.h
+  };
 
-  const cx = x + box.w / 2;
-  const cy = y + box.h / 2;
+  const targets = collectSnapTargets(key);
+  const { dx, dy } = snapEdges(edges, targets, snap);
 
-  let bestDX = 0;
-  let bestDY = 0;
-  let minDX = snap;
-  let minDY = snap;
-
-  // 🎯 🧲stage center
-  const dxCenter = 0.5 - cx;
-  if (Math.abs(dxCenter) < minDX) {
-    minDX = Math.abs(dxCenter);
-    bestDX = dxCenter;
-  }
-
-  const dyCenter = 0.5 - cy;
-  if (Math.abs(dyCenter) < minDY) {
-    minDY = Math.abs(dyCenter);
-    bestDY = dyCenter;
-  }
-
-  // 🎯 🧲other frames
-  Object.keys(currentLayout).forEach(k => {
-    if (k === key) return;
-
-    const o = currentLayout[k];
-
-    const hPairs = [
-      [x, o.x],
-      [x + box.w, o.x + o.w],
-      [cx, o.x + o.w / 2]
-    ];
-
-    hPairs.forEach(([a, b]) => {
-      const d = b - a;
-      if (Math.abs(d) < minDX) {
-        minDX = Math.abs(d);
-        bestDX = d;
-      }
-    });
-
-    const vPairs = [
-      [y, o.y],
-      [y + box.h, o.y + o.h],
-      [cy, o.y + o.h / 2]
-    ];
-
-    vPairs.forEach(([a, b]) => {
-      const d = b - a;
-      if (Math.abs(d) < minDY) {
-        minDY = Math.abs(d);
-        bestDY = d;
-      }
-    });
-  });
-
-  nx += bestDX * SNAP_RESIST;
-  ny += bestDY * SNAP_RESIST;
-
-  return { x: nx, y: ny };
+  return {
+    x: x + dx * SNAP_RESIST,
+    y: y + dy * SNAP_RESIST
+  };
 }
+
+
+
 
 function applyResizeSnapping(key, box) {
   const snap = SNAP_RATIO;
 
   Object.keys(currentLayout).forEach(k => {
     if (k === key) return;
-
     const o = currentLayout[k];
 
-    // Snap width
+    // width snap
     if (Math.abs(box.w - o.w) < snap) {
-      box.w += (o.w - box.w) * SNAP_RESIST;
+      box.w = o.w;
     }
 
-    // Snap height
+    // height snap
     if (Math.abs(box.h - o.h) < snap) {
-      box.h += (o.h - box.h) * SNAP_RESIST;
+      box.h = o.h;
+    }
+
+    // right edge snap
+    if (Math.abs((box.x + box.w) - (o.x + o.w)) < snap) {
+      box.w = (o.x + o.w) - box.x;
+    }
+
+    // bottom edge snap
+    if (Math.abs((box.y + box.h) - (o.y + o.h)) < snap) {
+      box.h = (o.y + o.h) - box.y;
     }
   });
-}
 
+  // stage edges
+  if (Math.abs(box.x + box.w - 1) < snap) box.w = 1 - box.x;
+  if (Math.abs(box.y + box.h - 1) < snap) box.h = 1 - box.y;
+}
 
 
 function roundRectPath(ctx, x, y, w, h, r) {
@@ -181,7 +280,6 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
-
 
 
 function show(screen) {
@@ -343,6 +441,7 @@ function makeDraggable(frameEl, key) {
     });
 
     let dragging = false;
+    pointerWasDragging = false;
 
     function onMove(ev) {
       const dxPx = ev.clientX - startX;
@@ -352,6 +451,7 @@ function makeDraggable(frameEl, key) {
       if (!dragging) {
         if (Math.abs(dxPx) < 4 && Math.abs(dyPx) < 4) return;
         dragging = true;
+        pointerWasDragging = true;
         frameEl.setPointerCapture(e.pointerId);
       }
 
@@ -366,20 +466,20 @@ function makeDraggable(frameEl, key) {
         let tx = box.x + dx;
         let ty = box.y + dy;
 
-        const snapped = applyDragSnapping(k, tx, ty);
+        const snapped = snapMove(k, tx, ty);
 
         let nx = tx;
 
-        Object.keys(currentLayout).forEach(oKey => {
-          if (oKey === k) return;
-          const o = currentLayout[oKey];
-        
-          // snap left → left
-          nx = snapValue(nx, o.x, SNAP_RATIO);
-        
-          // snap right → right
-          nx = snapValue(nx + w, o.x + o.w, SNAP_RATIO) - w;
-        });
+        //Object.keys(currentLayout).forEach(oKey => {
+        //  if (oKey === k) return;
+        //  const o = currentLayout[oKey];
+        //
+        //  // snap left → left
+        //  nx = snapValue(nx, o.x, SNAP_RATIO);
+        //
+        //  // snap right → right
+        //  nx = snapValue(nx + w, o.x + o.w, SNAP_RATIO) - w;
+        //});
         
         currentLayout[k].x = clamp(nx, 0, 1 - w);
 
@@ -390,6 +490,7 @@ function makeDraggable(frameEl, key) {
     }
 
     function onUp() {
+      pointerWasDragging = false;
       try { frameEl.releasePointerCapture(e.pointerId); } catch {}
       frameEl.removeEventListener("pointermove", onMove);
       frameEl.removeEventListener("pointerup", onUp);
@@ -402,20 +503,24 @@ function makeDraggable(frameEl, key) {
   });
 }
 
-
+let selectedSetupFrames = [];
 
 /* attach dragging */
 makeDraggable(frameLeft_setup, "left");
 makeDraggable(frameRT_setup, "rt");
 makeDraggable(frameRB_setup, "rb");
 
+/* attach touch selection (mobile-friendly) */
+addTouchSelection(frameLeft_setup, "left");
+addTouchSelection(frameRT_setup, "rt");
+addTouchSelection(frameRB_setup, "rb");
+
+
 const SETUP_FRAMES = {
   left: frameLeft_setup,
   rt: frameRT_setup,
   rb: frameRB_setup
 };
-
-let selectedSetupFrames = [];
 
 function updateSetupSelectionUI() {
   Object.entries(SETUP_FRAMES).forEach(([key, el]) => {
@@ -436,21 +541,24 @@ function clearSetupSelection() {
   updateSetupSelectionUI();
 }
 
-Object.entries(SETUP_FRAMES).forEach(([key, el]) => {
-  el.addEventListener("pointerdown", e => {
-    e.stopPropagation();
-    selectSetupFrame(key, e.shiftKey);
-  });
-});
+// Object.entries(SETUP_FRAMES).forEach(([key, el]) => {
+//   el.addEventListener("pointerdown", e => {
+//     e.stopPropagation();
+//     selectSetupFrame(key, e.shiftKey);
+//   });
+// });
 
 const safeEl = stage.querySelector(".safe");
 
 safeEl.addEventListener("pointerdown", e => {
-  // Clear selection ONLY if clicking empty safe area
-  if (e.target === safeEl) {
+  // Only clear if:
+  // 1) clicking empty safe area
+  // 2) not starting a drag
+  if (e.target === safeEl && !pointerWasDragging) {
     clearSetupSelection();
   }
 });
+
 
 
 function getSetupGroupBounds(keys) {
@@ -505,6 +613,7 @@ function makeResizable(frameEl, key) {
     handle.addEventListener("pointerdown", e => {
       e.stopPropagation();
       e.preventDefault();
+      pointerWasDragging = true;
       handle.setPointerCapture(e.pointerId);
       
 
@@ -515,49 +624,83 @@ function makeResizable(frameEl, key) {
       const box = currentLayout[key];
       const orig = { ...box };
 
+      const anchor = {
+        right: orig.x + orig.w,
+        bottom: orig.y + orig.h
+      };
+
+
       function onMove(ev) {
         const dx = (ev.clientX - startX) / safeRect.width;
         const dy = (ev.clientY - startY) / safeRect.height;
-
-        if (handle.classList.contains("se")) {
-          box.w = clamp(orig.w + dx, 0.05, 1);
-          box.h = clamp(orig.h + dy, 0.05, 1);
+      
+        // reset to original each move
+        box.x = orig.x;
+        box.y = orig.y;
+        box.w = orig.w;
+        box.h = orig.h;
+      
+        const targets = collectSnapTargets(key);
+        const snap = SNAP_RATIO;
+      
+        // LEFT edge (NW / SW)
+        if (handle.classList.contains("nw") || handle.classList.contains("sw")) {
+          let newLeft = orig.x + dx;
+        
+          const { dx: snapDX } = snapEdges({ left: newLeft }, targets, snap);
+          newLeft += snapDX * SNAP_RESIST;
+        
+          box.x = clamp(newLeft, 0, orig.x + orig.w - 0.05);
+          box.w = anchor.right - box.x;
         }
-
-        if (handle.classList.contains("nw")) {
-          box.x = clamp(orig.x + dx, 0, orig.x + orig.w - 0.05);
-          box.y = clamp(orig.y + dy, 0, orig.y + orig.h - 0.05);
-          box.w = clamp(orig.w - dx, 0.05, 1);
-          box.h = clamp(orig.h - dy, 0.05, 1);
+      
+        // RIGHT edge (NE / SE)
+        if (handle.classList.contains("ne") || handle.classList.contains("se")) {
+          let newRight = orig.x + orig.w + dx;
+        
+          const { dx: snapDX } = snapEdges({ left: newRight }, targets, snap);
+          newRight += snapDX * SNAP_RESIST;
+        
+          box.w = clamp(newRight - orig.x, 0.05, 1);
         }
-
-        if (handle.classList.contains("ne")) {
-          box.y = clamp(orig.y + dy, 0, orig.y + orig.h - 0.05);
-          box.w = clamp(orig.w + dx, 0.05, 1);
-          box.h = clamp(orig.h - dy, 0.05, 1);
+      
+        // TOP edge (NW / NE)
+        if (handle.classList.contains("nw") || handle.classList.contains("ne")) {
+          let newTop = orig.y + dy;
+        
+          const { dy: snapDY } = snapEdges({ top: newTop }, targets, snap);
+          newTop += snapDY * SNAP_RESIST;
+        
+          box.y = clamp(newTop, 0, orig.y + orig.h - 0.05);
+          box.h = anchor.bottom - box.y;
         }
-
-        if (handle.classList.contains("sw")) {
-          box.x = clamp(orig.x + dx, 0, orig.x + orig.w - 0.05);
-          box.w = clamp(orig.w - dx, 0.05, 1);
-          box.h = clamp(orig.h + dy, 0.05, 1);
+      
+        // BOTTOM edge (SW / SE)
+        if (handle.classList.contains("sw") || handle.classList.contains("se")) {
+          let newBottom = orig.y + orig.h + dy;
+        
+          const { dy: snapDY } = snapEdges({ top: newBottom }, targets, snap);
+          newBottom += snapDY * SNAP_RESIST;
+        
+          box.h = clamp(newBottom - orig.y, 0.05, 1);
         }
-
-        applyResizeSnapping(key, box, safeRect);
+      
         applyLayoutToSetup(currentLayout);
       }
 
+
       function onUp() {
+        pointerWasDragging = false;
         handle.releasePointerCapture(e.pointerId);
         handle.removeEventListener("pointermove", onMove);
         handle.removeEventListener("pointerup", onUp);
         handle.removeEventListener("pointercancel", onUp);
       }
 
-
       handle.addEventListener("pointermove", onMove);
       handle.addEventListener("pointerup", onUp);
       handle.addEventListener("pointercancel", onUp);
+
     });
   });
 }
@@ -643,11 +786,20 @@ async function takePhotos() {
     const video = frame.querySelector("video.cam");
     const imgEl = frame.querySelector("img.photo");
 
+    // get real beep duration
+    const beepDelay = getAudioDurationMs(beepSound, 600);
+
+    // countdown 5 → 1
     for (let i = 5; i >= 1; i--) {
       cd.textContent = String(i);
       playSafe(beepSound);
-      await sleep(800);
+      await sleep(beepDelay);
     }
+
+    // remove "1" BEFORE shutter
+    cd.textContent = "";
+    await sleep(120); // short visual pause
+
 
     // capture current video frame (mirrored)
     const vw = video.videoWidth || 1280;
@@ -701,15 +853,17 @@ async function takePhotos() {
    mapped to background pixel coordinates.
 =========================== */
 async function exportJpg() {
+  await new Promise(r => requestAnimationFrame(r));
+
   const profile = PROFILES[currentProfileId] || PROFILES.guest;
-  if (!profile) { alert("Profile not found"); return; }
+  if (!profile) return;
 
   if (!frozenPhotos.left || !frozenPhotos.rt || !frozenPhotos.rb) {
     alert("Photos not ready yet.");
+    setFrameBordersVisible(true);
     return;
   }
 
-  // Load background
   const bg = await loadImage(profile.background);
 
   const BW = bg.naturalWidth;
@@ -720,55 +874,36 @@ async function exportJpg() {
   out.height = BH;
   const ctx = out.getContext("2d");
 
-  // draw background 1:1
-  //ctx.drawImage(bg, 0, 0);
-  const stageRadiusPx = Math.round(BW * 0.02); // ≈ CSS 16px scaled
-
-  ctx.save();
-  roundRectPath(ctx, 0, 0, BW, BH, stageRadiusPx);
-  ctx.clip();
   ctx.drawImage(bg, 0, 0, BW, BH);
-  ctx.restore();
 
-
-  // Map DOM rect → background pixels
   const stageRect = stageBooth.getBoundingClientRect();
 
-  // get rects for frames on stageBooth
   const rectLeft = frameLeft.getBoundingClientRect();
-  const rectRT = frameRT.getBoundingClientRect();
-  const rectRB = frameRB.getBoundingClientRect();
+  const rectRT   = frameRT.getBoundingClientRect();
+  const rectRB   = frameRB.getBoundingClientRect();
 
-  // helper to map
   function mapRect(r) {
-    const x = (r.left - stageRect.left) / stageRect.width * BW;
-    const y = (r.top - stageRect.top) / stageRect.height * BH;
-    const w = (r.width / stageRect.width) * BW;
-    const h = (r.height / stageRect.height) * BH;
-    return { x, y, w, h };
+    return {
+      x: (r.left - stageRect.left) / stageRect.width * BW,
+      y: (r.top  - stageRect.top ) / stageRect.height * BH,
+      w: r.width  / stageRect.width  * BW,
+      h: r.height / stageRect.height * BH
+    };
   }
 
-  const boxLeft = mapRect(rectLeft);
-  const boxRT = mapRect(rectRT);
-  const boxRB = mapRect(rectRB);
+  drawCoverRounded(ctx, frozenPhotos.left, mapRect(rectLeft),  Math.round(BW * 0.015));
+  drawCoverRounded(ctx, frozenPhotos.rt,   mapRect(rectRT),    Math.round(BW * 0.015));
+  drawCoverRounded(ctx, frozenPhotos.rb,   mapRect(rectRB),    Math.round(BW * 0.015));
 
-  // Corner radius in output pixels: derive from CSS radius proportionally
-  const radiusPx = Math.round(
-    frameLeft.getBoundingClientRect().width /
-    stageRect.width * BW * 0.06
-  );
-
-
-  drawCoverRounded(ctx, frozenPhotos.left, boxLeft, radiusPx);
-  drawCoverRounded(ctx, frozenPhotos.rt, boxRT, radiusPx);
-  drawCoverRounded(ctx, frozenPhotos.rb, boxRB, radiusPx);
-
-  // download
   const a = document.createElement("a");
   a.download = "photobooth.jpg";
   a.href = out.toDataURL("image/jpeg", 0.95);
   a.click();
+
+  // ✅ restore ONLY at the very end
+  setFrameBordersVisible(true);
 }
+
 
 function drawCoverRounded(ctx, img, box, r) {
   if (!img || !img.naturalWidth || !img.naturalHeight) return;
