@@ -98,6 +98,8 @@ function addTouchSelection(el, key) {
 
     // short tap
     if (!longPressed) {
+    
+      // DESKTOP: Shift = toggle
       if (e.shiftKey) {
         if (selectedSetupFrames.includes(key)) {
           selectedSetupFrames =
@@ -106,14 +108,20 @@ function addTouchSelection(el, key) {
           selectedSetupFrames.push(key);
         }
       } else {
+        // MOBILE / NORMAL TAP LOGIC
+      
+        // If tapping already-selected frame → do NOTHING
         if (selectedSetupFrames.includes(key)) {
-          selectedSetupFrames = [];
-        } else {
-          selectedSetupFrames = [key];
+          return;
         }
+      
+        // Tapping a different frame → replace selection
+        selectedSetupFrames = [key];
       }
+    
       updateSetupSelectionUI();
     }
+
   });
 
 
@@ -122,6 +130,16 @@ function addTouchSelection(el, key) {
   });
 }
 
+function getSafeBounds() {
+  return {
+    left: 0,
+    top: 0,
+    right: 1,
+    bottom: 1,
+    cx: 0.5,
+    cy: 0.5
+  };
+}
 
 
 function getBoxEdges(box) {
@@ -150,20 +168,25 @@ function getEdges(box) {
 }
 
 function collectSnapTargets(excludeKey) {
+  const safe = getSafeBounds();
+
   const targets = {
-    v: [0, 1], // stage vertical edges
-    h: [0, 1]  // stage horizontal edges
+    v: [safe.left, safe.right, safe.cx], // left, right, CENTER
+    h: [safe.top, safe.bottom, safe.cy]  // top, bottom, CENTER
   };
 
   Object.keys(currentLayout).forEach(k => {
     if (k === excludeKey) return;
+
     const e = getBoxEdges(currentLayout[k]);
-    targets.v.push(e.left, e.right);
-    targets.h.push(e.top, e.bottom);
+
+    targets.v.push(e.left, e.right, e.cx);
+    targets.h.push(e.top, e.bottom, e.cy);
   });
 
   return targets;
 }
+
 
 function snapEdges(edges, targets, snap) {
   let dx = 0, dy = 0;
@@ -200,7 +223,6 @@ function snapValue(value, target, snap) {
   return value;
 }
 
-
 function getAudioDurationMs(audioEl, fallbackMs = 1200) {
   if (!audioEl) return fallbackMs;
 
@@ -232,9 +254,6 @@ function snapMove(key, x, y) {
     y: y + dy * SNAP_RESIST
   };
 }
-
-
-
 
 function applyResizeSnapping(key, box) {
   const snap = SNAP_RATIO;
@@ -280,7 +299,6 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
 }
-
 
 function show(screen) {
   [loginScreen, cameraCheckScreen, layoutSetupScreen, boothScreen].forEach(s => s.classList.add("hidden"));
@@ -469,20 +487,8 @@ function makeDraggable(frameEl, key) {
         const snapped = snapMove(k, tx, ty);
 
         let nx = tx;
-
-        //Object.keys(currentLayout).forEach(oKey => {
-        //  if (oKey === k) return;
-        //  const o = currentLayout[oKey];
-        //
-        //  // snap left → left
-        //  nx = snapValue(nx, o.x, SNAP_RATIO);
-        //
-        //  // snap right → right
-        //  nx = snapValue(nx + w, o.x + o.w, SNAP_RATIO) - w;
-        //});
-        
-        currentLayout[k].x = clamp(nx, 0, 1 - w);
-
+                
+        currentLayout[k].x = clamp(snapped.x, 0, 1 - w);
         currentLayout[k].y = clamp(snapped.y, 0, 1 - h);
       });
 
@@ -629,7 +635,6 @@ function makeResizable(frameEl, key) {
         bottom: orig.y + orig.h
       };
 
-
       function onMove(ev) {
         const dx = (ev.clientX - startX) / safeRect.width;
         const dy = (ev.clientY - startY) / safeRect.height;
@@ -687,7 +692,6 @@ function makeResizable(frameEl, key) {
       
         applyLayoutToSetup(currentLayout);
       }
-
 
       function onUp() {
         pointerWasDragging = false;
@@ -748,8 +752,6 @@ function setFrameState(frame, state) {
     }
   }
 
-
-
   if (state === "counting") {
     frame.classList.add("active");
     if (video) video.classList.remove("hidden");
@@ -769,7 +771,6 @@ function setFrameState(frame, state) {
     const veil = frame.querySelector(".whiteveil");
     if (veil) veil.style.opacity = "0";
   }
-
 }
 
 /* ===========================
@@ -799,7 +800,6 @@ async function takePhotos() {
     // remove "1" BEFORE shutter
     cd.textContent = "";
     await sleep(120); // short visual pause
-
 
     // capture current video frame (mirrored)
     const vw = video.videoWidth || 1280;
@@ -1028,9 +1028,7 @@ document.getElementById("retakeBtn").onclick = async () => {
   frameFrozen.rt = false;
   frameFrozen.rb = false;
 
-
   await startCamera(boothVideos);
-
   await sleep(600);
   await takePhotos();
   stopCamera();
